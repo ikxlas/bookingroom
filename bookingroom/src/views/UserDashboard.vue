@@ -33,11 +33,6 @@
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title fw-bold">{{ room.name }}</h5>
                             <p class="card-text text-muted small mb-2">Kapasitas: {{ room.capacity }} Orang</p>
-                            <div class="mb-3">
-                                <span class="badge" :class="room.is_in_use ? 'bg-danger' : 'bg-success'">
-                                    {{ room.is_in_use ? '🔴 Dipesan: ' + room.used_date : '🟢 Kosong' }}
-                                </span>
-                            </div>
                             <button class="btn btn-primary-custom rounded-pill mt-auto" @click="openBookingForm(room)">Pilih Ruangan</button>
                         </div>
                     </div>
@@ -55,7 +50,14 @@
                 <form @submit.prevent="handleBookingSubmit">
                     <div class="mb-3">
                         <label class="form-label">Tanggal Peminjaman</label>
-                        <input v-model="bookingForm.date" type="date" class="form-control form-control-lg" required>
+                        <VueDatePicker
+                            v-model="bookingForm.date"
+                            :disabled-dates="disabledDates"
+                            :min-date="new Date()"
+                            auto-apply
+                            format="yyyy-MM-dd"
+                            required
+                        />
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Durasi (Jam)</label>
@@ -168,11 +170,13 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useState } from '@/composables/useState'
+import { VueDatePicker } from '@vuepic/vue-datepicker'
+import '@vuepic/vue-datepicker/dist/main.css'
 
 const router = useRouter()
 const route = useRoute()
 const { user, logout } = useAuth()
-const { getRooms, getBookingsByUser, submitBooking } = useState()
+const { getRooms, getBookingsByUser, submitBooking, getBookedDates } = useState()
 
 const rooms = ref([])
 const history = ref([])
@@ -180,12 +184,15 @@ const showForm = ref(false)
 const selectedRoom = ref({})
 const searchQuery = ref('')
 const eTicket = ref(null)
+const bookedDates = ref([])
 
 const bookingForm = ref({
     date: '',
     duration: '',
     purpose: ''
 })
+
+const disabledDates = ref([])
 
 const availableRooms = computed(() => {
     let filtered = rooms.value.filter(r => r.status === 'available')
@@ -228,8 +235,13 @@ const handleLogout = async () => {
     router.push({ name: 'Login' })
 }
 
-const openBookingForm = (room) => {
+const openBookingForm = async (room) => {
     selectedRoom.value = room
+    
+    // Parse strings ['2026-06-15'] to JS Date objects for DatePicker!
+    const rawDates = await getBookedDates(room.id)
+    disabledDates.value = Array.isArray(rawDates) ? rawDates.map(dStr => new Date(dStr)) : []
+
     bookingForm.value = {
         date: '',
         duration: '',
@@ -250,9 +262,15 @@ const handleAjukanUlang = (b) => {
 }
 
 const handleBookingSubmit = async () => {
+    // VueDatePicker returns a raw JS Date object if we don't strict output it via model-type.
+    const formattedDate = bookingForm.value.date instanceof Date 
+        ? bookingForm.value.date.toISOString().split('T')[0] 
+        : bookingForm.value.date;
+
     const payload = {
         roomId: selectedRoom.value.id,
-        ...bookingForm.value
+        ...bookingForm.value,
+        date: formattedDate
     }
     
     try {
