@@ -67,6 +67,13 @@ export function useState() {
         })
     }
 
+    const getBookedDates = async (roomId) => {
+        try {
+            const res = await fetch(`${API_URL}/rooms/${roomId}/booked-dates`, { headers: getAuthHeaders() })
+            return res.ok ? await res.json() : []
+        } catch(e) { return [] }
+    }
+
     return {
         getRooms,
         saveRoom,
@@ -74,6 +81,7 @@ export function useState() {
         getBookings,
         getBookingsByUser,
         submitBooking,
-        updateBookingStatus
+        updateBookingStatus,
+        getBookedDates
     }
 }
