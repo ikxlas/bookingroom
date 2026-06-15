@@ -64,4 +64,15 @@ class BookingController extends Controller
         $booking->update($updateData);
         return response()->json(['success' => true]);
     }
+
+    public function getBookedDates($roomId)
+    {
+        $dates = \App\Models\Booking::where('room_id', $roomId)
+            ->where('status', 'Disetujui')
+            ->pluck('date')
+            ->unique()
+            ->values();
+            
+        return response()->json($dates);
+    }
 }
